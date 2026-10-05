@@ -69,6 +69,8 @@
       (unwind-protect
            (progn
              (check (eq :new (session-state session)))
+             (check-error 'dap-state-error (lambda () (session-threads session)))
+             (check-error 'dap-state-error (lambda () (session-start session :launch (json-object))))
              (check (json-get (session-initialize session) "supportsConfigurationDoneRequest"))
              (check (eq :initialized (session-state session)))
              (check-error 'dap-state-error (lambda () (session-initialize session)))
@@ -82,6 +84,12 @@
                                              (check (json-get (aref (json-get body "breakpoints") 0) "verified")))))
                (check configured))
              (check (eq :stopped (session-state session)))
+             (check (equal "stopped" (json-get (session-wait-event session "stopped" :timeout 0.1) "event")))
+             (check-error 'dap-state-error (lambda () (session-pause session 1)))
+             (check-error 'dap-limit-error (lambda () (session-stack-trace session 1 :levels 0)))
+             (check-error 'dap-limit-error (lambda () (session-variables session 4 :count 10001)))
+             (check-error 'dap-protocol-error (lambda () (session-scopes session -1)))
+             (check-error 'dap-protocol-error (lambda () (session-step session 1 :invalid)))
              (check (= 128 (length (adapter-stderr transport))))
              (check (= 1 (length (json-get (session-threads session) "threads"))))
              (check (= 1 (json-get (session-stack-trace session 1 :levels 2) "totalFrames")))
@@ -156,9 +164,79 @@
   (check-error 'dap-transport-error (lambda () (start-adapter "/nonexistent/daphne-adapter" nil)))
   (check-error 'dap-limit-error (lambda () (fixture-session :max-pending 0))))
 
+(defun test-adversarial ()
+  "Bound blocked writes, preserve events, reject duplicates and enforce admission."
+  (multiple-value-bind (session transport) (fixture-session)
+    (unwind-protect
+         (progn
+           (session-initialize session)
+           (check (equal "λ😀" (json-get (session-request session "fragmented" (json-object)) "text")))
+           (session-request session "events" (json-object))
+           (check (= 2 (json-get (json-get (session-wait-event session "custom") "body") "ordinal")))
+           (check (equal '(1 3) (mapcar (lambda (event) (json-get (json-get event "body") "ordinal"))
+                                      (session-events session :name "output"))))
+           (check (null (session-events session)))
+           (session-request session "stop-reading" (json-object))
+           (let ((start (get-internal-real-time)))
+             (check-error 'dap-timeout
+                          (lambda () (session-request session "echo"
+                                                      (json-object "text" (make-string 262144 :initial-element #\x))
+                                                      :timeout 0.2)))
+             (check (< (/ (- (get-internal-real-time) start) internal-time-units-per-second) 2)))
+           (check (not (sb-ext:process-alive-p (adapter-process transport)))))
+      (session-close session)))
+  (multiple-value-bind (session transport) (fixture-session)
+    (unwind-protect
+         (progn
+           (session-initialize session)
+           (handler-case (session-request session "duplicate" (json-object))
+             (dap-protocol-error () nil))
+           (loop repeat 200 until (eq :failed (session-state session)) do (sleep 0.005))
+           (session-close session)
+           (check (typep (session-failure session) 'dap-protocol-error))
+           (check (not (sb-ext:process-alive-p (adapter-process transport)))))
+      (session-close session)))
+  (multiple-value-bind (session transport) (fixture-session)
+    (unwind-protect
+         (progn
+           (session-initialize session)
+           ;; Hold the waiter until reader EOF cleanup completes, deterministically.
+           (let ((first t))
+             (check (json-get (session-request session "reply-eof" (json-object)
+                                              :cancel-p (lambda ()
+                                                          (unless first (sleep 0.05))
+                                                          (setf first nil) nil))
+                              "complete")))
+           (session-close session)
+           (check (not (sb-ext:process-alive-p (adapter-process transport)))))
+      (session-close session)))
+  (multiple-value-bind (session transport) (fixture-session :max-pending 1)
+    (let ((ready nil) (failure nil) (calls 0) (thread nil))
+      (unwind-protect
+           (progn
+             (session-initialize session)
+             (setf thread
+                   (bt:make-thread
+                    (lambda ()
+                      (handler-case
+                          (session-request session "hang" (json-object)
+                                           :cancel-p (lambda ()
+                                                       (when (> (incf calls) 1) (setf ready t)) nil))
+                        (error (cause) (setf failure cause))))))
+             (loop repeat 200 until ready do (sleep 0.005))
+             (check ready)
+             (check-error 'dap-limit-error (lambda () (session-request session "echo" (json-object))))
+             (check (eq :initialized (session-state session)))
+             (session-close session)
+             (bt:join-thread thread)
+             (check (typep failure 'dap-state-error))
+             (check (not (sb-ext:process-alive-p (adapter-process transport)))))
+        (session-close session)
+        (when (and thread (bt:thread-alive-p thread)) (bt:join-thread thread))))))
+
 (defun run-tests ()
   "Run framing and actual adapter-process tests; return assertion count."
   (let ((*test-checks* 0))
-    (test-framing) (test-lifecycle) (test-correlation) (test-failures)
+    (test-framing) (test-lifecycle) (test-correlation) (test-failures) (test-adversarial)
     (format t "~&Daphne: ~D assertions passed.~%" *test-checks*)
     *test-checks*))

@@ -140,21 +140,23 @@ Adapter termination events set :TERMINATED but permit disconnect/cleanup."
     (error 'dap-limit-error :message "Timeout must be positive and at most one day."))
   (+ (get-internal-real-time) (* timeout internal-time-units-per-second)))
 
-(defun session--check (session end cancel-p)
-  "Check cancellation, deadline and connection failure. Cancellation closes the session."
+(defun session--check (session end cancel-p &key pending)
+  "Check deadlines and connection failure; retain a completed response across later EOF."
   (let ((failure (cond ((and cancel-p (funcall cancel-p))
                        (make-condition 'dap-cancelled :message "DAP operation cancelled."))
                       ((>= (get-internal-real-time) end)
                        (make-condition 'dap-timeout :message "DAP operation timed out.")))))
     (when failure (session-close session failure) (error failure)))
-  (let ((failure
-          (bt:with-lock-held ((session-lock session))
-            (when (member (session-state session) '(:closed :failed))
-              (or (session-failure session)
-                  (make-condition 'dap-state-error :message "DAP session is closed."))))))
-    (when failure
+  (let ((failure nil) (closed-p nil) (completed-p nil))
+    (bt:with-lock-held ((session-lock session))
+      (when (member (session-state session) '(:closed :failed))
+        (setf closed-p t
+              completed-p (and pending (pending-response pending))
+              failure (or (session-failure session)
+                          (make-condition 'dap-state-error :message "DAP session is closed.")))))
+    (when closed-p
       (session-close session)
-      (error failure))))
+      (unless completed-p (error failure)))))
 
 (defun session-request (session command arguments &key (timeout 10) cancel-p on-event event-name)
   "Send COMMAND and JSON object ARGUMENTS; return body and full response.
@@ -182,7 +184,7 @@ immutable after submission."
                     (error () nil)))
                 :name "DAP request writer")
                (loop
-                 (session--check session end cancel-p)
+                 (session--check session end cancel-p :pending entry)
                  (when on-event
                    (dolist (event (session-events session :name event-name)) (funcall on-event event)))
                  (let ((response (bt:with-lock-held ((session-lock session))
