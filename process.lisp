@@ -38,6 +38,7 @@
     (copy-seq (adapter-error-buffer transport))))
 
 (defmethod transport-close ((transport process-transport))
+  "Kill and reap the adapter once, then close its streams."
   (let ((close-p (bt:with-lock-held ((adapter-lock transport))
                    (unless (adapter-closed-p transport)
                      (setf (adapter-closed-p transport) t)))))

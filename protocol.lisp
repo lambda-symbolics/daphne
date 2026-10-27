@@ -133,11 +133,14 @@ and body allocation; reject duplicate lengths, bare LF and truncated frames."
   (make-instance 'stream-transport :input input :output output
                  :max-header max-header :max-body max-body))
 (defmethod transport-read ((transport stream-transport))
+  "Read one frame from the input stream within the transport's bounds."
   (read-frame (transport-input transport) :max-header (transport-max-header transport)
               :max-body (transport-max-body transport)))
 (defmethod transport-write ((transport stream-transport) message)
+  "Write MESSAGE as one frame to the output stream."
   (write-frame (transport-output transport) message :max-body (transport-max-body transport)))
 (defmethod transport-close ((transport stream-transport))
+  "Close both streams and discard unwritten output."
   ; mallet:suppress no-ignore-errors -- closing must reach both streams and never fail
   (ignore-errors (close (transport-input transport) :abort t))
   ; mallet:suppress no-ignore-errors -- closing must reach both streams and never fail
