@@ -1,14 +1,35 @@
 (in-package #:daphne)
 
 (defclass process-transport (stream-transport)
-  ((process :initarg :process :reader adapter-process)
-   (error-stream :initarg :error-stream :reader adapter-error-stream)
-   (error-thread :initform nil :accessor adapter-error-thread)
-   (stderr :initform (make-array 0 :element-type '(unsigned-byte 8)
-                                :adjustable t :fill-pointer 0) :reader adapter-error-buffer)
-   (stderr-limit :initarg :stderr-limit :reader adapter-stderr-limit)
-   (lock :initform (bt:make-lock "DAP process") :reader adapter-lock)
-   (closed :initform nil :accessor adapter-closed-p))
+  ((process
+    :initarg       :process
+    :reader        adapter-process
+    :documentation "The SBCL process that runs the adapter.")
+   (error-stream
+    :initarg       :error-stream
+    :reader        adapter-error-stream
+    :documentation "Binary stream that carries adapter stderr.")
+   (error-thread
+    :initform      nil
+    :accessor      adapter-error-thread
+    :documentation "Thread that drains adapter stderr.")
+   (stderr
+    :initform      (make-array 0 :element-type '(unsigned-byte 8)
+                                 :adjustable t :fill-pointer 0)
+    :reader        adapter-error-buffer
+    :documentation "The first stderr octets, up to the stderr limit.")
+   (stderr-limit
+    :initarg       :stderr-limit
+    :reader        adapter-stderr-limit
+    :documentation "Most stderr octets the transport keeps.")
+   (lock
+    :initform      (bt:make-lock "DAP process")
+    :reader        adapter-lock
+    :documentation "Guards the stderr buffer and the closed flag.")
+   (closed
+    :initform      nil
+    :accessor      adapter-closed-p
+    :documentation "True once a close call has started cleanup."))
   (:documentation "An owned SBCL adapter subprocess with bounded stderr capture."))
 
 (defun adapter-stderr (transport)

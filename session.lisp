@@ -3,20 +3,62 @@
 (defstruct pending command response id)
 
 (defclass session ()
-  ((transport :initarg :transport :reader session-transport)
-   (lock :initform (bt:make-lock "DAP session") :reader session-lock)
-   (write-lock :initform (bt:make-lock "DAP writer") :reader session-write-lock)
-   (close-lock :initform (bt:make-lock "DAP cleanup") :reader session-close-lock)
-   (state :initform :new :accessor session-state)
-   (failure :initform nil :accessor session-failure)
-   (capabilities :initform nil :accessor session-capabilities)
-   (sequence :initform 0 :accessor session-sequence)
-   (pending :initform (make-hash-table) :reader session-pending)
-   (events :initform nil :accessor session-event-queue)
-   (event-count :initform 0 :accessor session-event-count)
-   (max-events :initarg :max-events :reader session-max-events)
-   (max-pending :initarg :max-pending :reader session-max-pending)
-   (reader :initform nil :accessor session-reader))
+  ((transport
+    :initarg       :transport
+    :reader        session-transport
+    :documentation "The transport this session owns.")
+   (lock
+    :initform      (bt:make-lock "DAP session")
+    :reader        session-lock
+    :documentation "Guards the state, pending requests, and event queue.")
+   (write-lock
+    :initform      (bt:make-lock "DAP writer")
+    :reader        session-write-lock
+    :documentation "Keeps sequence numbers in the order messages are written.")
+   (close-lock
+    :initform      (bt:make-lock "DAP cleanup")
+    :reader        session-close-lock
+    :documentation "Makes every close call wait until cleanup completes.")
+   (state
+    :initform      :new
+    :accessor      session-state
+    :documentation "The lifecycle state keyword.")
+   (failure
+    :initform      nil
+    :accessor      session-failure
+    :documentation "The first condition that failed the connection, or NIL.")
+   (capabilities
+    :initform      nil
+    :accessor      session-capabilities
+    :documentation "The body of the initialize response.")
+   (sequence
+    :initform      0
+    :accessor      session-sequence
+    :documentation "The last sequence number sent.")
+   (pending
+    :initform      (make-hash-table)
+    :reader        session-pending
+    :documentation "Pending requests, keyed by entry until sent and by sequence number after.")
+   (events
+    :initform      nil
+    :accessor      session-event-queue
+    :documentation "Queued events in arrival order.")
+   (event-count
+    :initform      0
+    :accessor      session-event-count
+    :documentation "The number of queued events.")
+   (max-events
+    :initarg       :max-events
+    :reader        session-max-events
+    :documentation "Most events the queue holds before the connection fails.")
+   (max-pending
+    :initarg       :max-pending
+    :reader        session-max-pending
+    :documentation "Most requests that may wait for responses at once.")
+   (reader
+    :initform      nil
+    :accessor      session-reader
+    :documentation "Thread that reads and dispatches incoming messages."))
   (:documentation "One adapter connection with correlated requests and bounded event storage."))
 
 (defun session-close (session &optional failure)

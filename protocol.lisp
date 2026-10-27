@@ -1,8 +1,15 @@
 (in-package #:daphne)
 
 (define-condition dap-error (error)
-  ((message :initarg :message :reader dap-error-message)
-   (cause :initarg :cause :initform nil :reader dap-error-cause))
+  ((message
+    :initarg       :message
+    :reader        dap-error-message
+    :documentation "Text that describes the failure.")
+   (cause
+    :initarg       :cause
+    :initform      nil
+    :reader        dap-error-cause
+    :documentation "The condition that caused this failure, or NIL."))
   (:report (lambda (condition stream)
              (write-string (dap-error-message condition) stream)))
   (:documentation "A structured DAP failure with an optional underlying cause."))
@@ -20,7 +27,10 @@
 (define-condition dap-cancelled (dap-error) ()
   (:documentation "The caller cancelled an operation."))
 (define-condition dap-request-error (dap-error)
-  ((response :initarg :response :reader dap-request-error-response))
+  ((response
+    :initarg       :response
+    :reader        dap-request-error-response
+    :documentation "The complete response in which the adapter rejected the request."))
   (:documentation "The adapter rejected a request; RESPONSE is the complete response."))
 
 (defun protocol-error (control &rest arguments)
@@ -100,10 +110,22 @@ and body allocation; reject duplicate lengths, bare LF and truncated frames."
   (:documentation "Idempotently close transport and unblock readers/writers."))
 
 (defclass stream-transport (transport)
-  ((input :initarg :input :reader transport-input)
-   (output :initarg :output :reader transport-output)
-   (max-header :initarg :max-header :reader transport-max-header)
-   (max-body :initarg :max-body :reader transport-max-body))
+  ((input
+    :initarg       :input
+    :reader        transport-input
+    :documentation "Binary stream that carries adapter output.")
+   (output
+    :initarg       :output
+    :reader        transport-output
+    :documentation "Binary stream that carries adapter input.")
+   (max-header
+    :initarg       :max-header
+    :reader        transport-max-header
+    :documentation "Most header octets one read accepts.")
+   (max-body
+    :initarg       :max-body
+    :reader        transport-max-body
+    :documentation "Most body octets one read or write accepts."))
   (:documentation "An owned pair of binary streams with framing bounds."))
 
 (defun make-stream-transport (input output &key (max-header 8192) (max-body (* 16 1024 1024)))
