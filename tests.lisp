@@ -1,6 +1,7 @@
 (in-package #:daphne)
 
-(defvar *test-checks* 0)
+(defvar *test-checks* 0
+  "The number of assertions the current test run has checked.")
 
 (defun check (value &optional (message "Daphne assertion failed"))
   "Record one executable assertion."
