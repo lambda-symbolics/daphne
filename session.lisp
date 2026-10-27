@@ -1,6 +1,8 @@
 (in-package #:daphne)
 
-(defstruct pending command response id)
+(defstruct pending
+  "One request, the sequence number it was sent under, and its response."
+  command response id)
 
 (defclass session ()
   ((transport
