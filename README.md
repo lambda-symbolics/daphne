@@ -163,3 +163,18 @@ DAPHNE_TEST_SETUP="$PWD/.qlot/setup.lisp" sbcl --noinform --non-interactive \
   --eval '(asdf:load-asd (truename ".cache/daphne/daphne.asd"))' \
   --eval '(asdf:test-system "daphne")'
 ```
+
+## Development
+
+```sh
+./script/bootstrap
+./script/check
+./script/check --fix
+```
+
+`./script/check` runs the tests with `DAPHNE_TEST_SETUP` set to the Qlot setup,
+then checks the source with [cheque](https://github.com/lambda-symbolics/cheque)
+as `cheque.sexp` configures it. `--fix` skips the tests and repairs what cheque
+can repair. cheque and its tools are development dependencies: `checks/qlfile`
+lists them, and the check installs them on first use into
+`~/.cache/cheque/tools/`.
