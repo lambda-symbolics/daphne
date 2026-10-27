@@ -1,4 +1,5 @@
 (defpackage #:daphne
+  (:documentation "Debug Adapter Protocol sessions with bounded requests, events, and adapter processes.")
   (:use #:cl)
   (:import-from #:argo #:json-object #:json-get #:json-encode-utf8
                 #:json-decode #:json-boolean #:json-true-p)
