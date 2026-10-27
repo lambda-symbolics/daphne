@@ -1,4 +1,6 @@
-;;;; An actual subprocess DAP adapter used by the executable boundary tests.
+;;;; -- Fixture Adapter --
+
+;;; A subprocess DAP adapter that the tests run as a real process.
 (require :asdf)
 (let ((*standard-output* *error-output*)
       (*trace-output* *error-output*))
