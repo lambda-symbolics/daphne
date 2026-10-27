@@ -55,7 +55,7 @@
 
 (defun fixture-session (&rest options)
   "Start a fresh actual adapter process with dependencies from test setup."
-  (let* ((root (asdf:system-source-directory "daphne"))
+  (let* ((root  (asdf:system-source-directory "daphne"))
          (setup (or (uiop:getenv "DAPHNE_TEST_SETUP")
                     (namestring (merge-pathnames "../../.qlot/setup.lisp" root)))))
     (apply #'start-adapter (namestring sb-ext:*runtime-pathname*)
@@ -103,8 +103,9 @@
              (check (eq :stopped (session-state session)))
              (dolist (kind '(:in :over :out)) (session-step session 1 kind))
              (session-request session "reverse" (json-object))
-             (check (find "continued" (session-events session) :test #'equal
-                          :key (lambda (event) (json-get event "event"))))
+             (check (find "continued" (session-events session)
+                          :test #'equal
+                          :key  (lambda (event) (json-get event "event"))))
              (session-terminate session :disconnect (eq mode :attach))
              (check (eq :closed (session-state session)))
              (check (not (sb-ext:process-alive-p (adapter-process transport))))

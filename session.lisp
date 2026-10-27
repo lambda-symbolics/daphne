@@ -108,7 +108,7 @@ Adapter termination events set :TERMINATED but permit disconnect/cleanup."
        (bt:with-lock-held ((session-lock session))
          (when (member (session-state session) '(:closed :failed))
            (return-from session--receive nil))
-         (let* ((id (json-get message "request_seq"))
+         (let* ((id    (json-get message "request_seq"))
                 (entry (and (integerp id) (gethash id (session-pending session)))))
            (unless (and entry (not (pending-response entry))
                         (equal (pending-command entry) (json-get message "command"))
@@ -128,9 +128,12 @@ Adapter termination events set :TERMINATED but permit disconnect/cleanup."
                (nconc (session-event-queue session) (list message)))
          (incf (session-event-count session))
          (let ((event (json-get message "event")))
-           (cond ((string= event "stopped") (setf (session-state session) :stopped))
-                 ((string= event "continued") (setf (session-state session) :running))
-                 ((string= event "terminated") (setf (session-state session) :terminated))))))
+           (cond ((string= event "stopped")
+                  (setf (session-state session) :stopped))
+                 ((string= event "continued")
+                  (setf (session-state session) :running))
+                 ((string= event "terminated")
+                  (setf (session-state session) :terminated))))))
       ((string= type "request")
        ;; Reverse requests need application-specific authority. Reject explicitly.
        (unless (stringp (json-get message "command"))
@@ -140,7 +143,8 @@ Adapter termination events set :TERMINATED but permit disconnect/cleanup."
                                    "command" (json-get message "command")
                                    "success" (json-boolean nil)
                                    "message" "Client does not support reverse requests.")))
-      (t (protocol-error "Unknown DAP message type ~S." type)))))
+      (t
+       (protocol-error "Unknown DAP message type ~S." type)))))
 
 (defun make-session (transport &key (max-events 1024) (max-pending 64))
   "Start a reader for owned TRANSPORT. Bounds must be positive integers."
@@ -187,9 +191,9 @@ Adapter termination events set :TERMINATED but permit disconnect/cleanup."
 (defun session--check (session end cancel-p &key pending)
   "Check deadlines and connection failure; retain a completed response across later EOF."
   (let ((failure (cond ((and cancel-p (funcall cancel-p))
-                       (make-condition 'dap-cancelled :message "DAP operation cancelled."))
-                      ((>= (get-internal-real-time) end)
-                       (make-condition 'dap-timeout :message "DAP operation timed out.")))))
+                        (make-condition 'dap-cancelled :message "DAP operation cancelled."))
+                       ((>= (get-internal-real-time) end)
+                        (make-condition 'dap-timeout :message "DAP operation timed out.")))))
     (when failure (session-close session failure) (error failure)))
   (let ((failure nil) (closed-p nil) (completed-p nil))
     (bt:with-lock-held ((session-lock session))
@@ -235,8 +239,9 @@ immutable after submission."
                                    (pending-response entry))))
                    (when response
                      (unless (json-true-p (gethash "success" response))
-                       (error 'dap-request-error :response response
-                              :message (or (json-get response "message") "Adapter rejected request.")))
+                       (error 'dap-request-error
+                              :response response
+                              :message  (or (json-get response "message") "Adapter rejected request.")))
                      (return (values (json-get response "body") response))))
                  (sleep 0.005)))
            (dap-request-error (failure) (error failure))
@@ -295,13 +300,19 @@ caller thread after initialized, to set breakpoints and other configuration."
     (setf (session-state session) :configuring))
   (let ((configured nil) (end (deadline timeout)))
     (labels ((remaining () (max 0.001 (/ (- end (get-internal-real-time)) internal-time-units-per-second)))
+
              (configure-event (event)
                (when (and (not configured) (equal (json-get event "event") "initialized"))
                  (when configure (funcall configure session))
                  (session-configuration-done session :timeout (remaining) :cancel-p cancel-p)
                  (setf configured t))))
       (handler-case
-          (let ((body (session-request session (ecase mode (:launch "launch") (:attach "attach"))
+          (let ((body (session-request session
+                                       (ecase mode
+                                         (:launch
+                                          "launch")
+                                         (:attach
+                                          "attach"))
                                        arguments :timeout (remaining) :cancel-p cancel-p
                                        :on-event #'configure-event :event-name "initialized")))
             (unless configured
@@ -354,7 +365,14 @@ caller thread after initialized, to set breakpoints and other configuration."
   (session--identifier thread-id)
   (unless (member kind '(:in :over :out))
     (error 'dap-protocol-error :message "Step kind must be :in, :over or :out."))
-  (session-request session (ecase kind (:in "stepIn") (:over "next") (:out "stepOut"))
+  (session-request session
+                   (ecase kind
+                     (:in
+                      "stepIn")
+                     (:over
+                      "next")
+                     (:out
+                      "stepOut"))
                    (json-object "threadId" thread-id) :timeout timeout :cancel-p cancel-p))
 
 (defun session-threads (session &key (timeout 10) cancel-p)

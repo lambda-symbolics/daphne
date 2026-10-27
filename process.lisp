@@ -79,11 +79,14 @@ is involved. SBCL's pipe streams support octet I/O. Stderr is drained separately
     (handler-case
         (progn
           (setf transport
-                (make-instance 'process-transport :process process
-                               :input (sb-ext:process-output process)
-                               :output (sb-ext:process-input process)
+                (make-instance 'process-transport
+                               :process      process
+                               :input        (sb-ext:process-output process)
+                               :output       (sb-ext:process-input process)
                                :error-stream (sb-ext:process-error process)
-                               :stderr-limit stderr-limit :max-header max-header :max-body max-body))
+                               :stderr-limit stderr-limit
+                               :max-header   max-header
+                               :max-body     max-body))
           (setf (adapter-error-thread transport)
                 (bt:make-thread
                  (lambda ()

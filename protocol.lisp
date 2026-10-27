@@ -16,16 +16,22 @@
 
 (define-condition dap-protocol-error (dap-error) ()
   (:documentation "Malformed framing or DAP message."))
+
 (define-condition dap-transport-error (dap-error) ()
   (:documentation "The adapter stream or process failed."))
+
 (define-condition dap-state-error (dap-error) ()
   (:documentation "Operation is invalid for this session state."))
+
 (define-condition dap-limit-error (dap-error) ()
   (:documentation "A configured resource bound was exceeded."))
+
 (define-condition dap-timeout (dap-error) ()
   (:documentation "A bounded operation did not complete before its deadline."))
+
 (define-condition dap-cancelled (dap-error) ()
   (:documentation "The caller cancelled an operation."))
+
 (define-condition dap-request-error (dap-error)
   ((response
     :initarg       :response
@@ -102,10 +108,13 @@ and body allocation; reject duplicate lengths, bare LF and truncated frames."
 
 (defclass transport () ()
   (:documentation "A blocking message transport owned by one session."))
+
 (defgeneric transport-read (transport)
   (:documentation "Read a message or NIL at EOF; errors abort the session."))
+
 (defgeneric transport-write (transport message)
   (:documentation "Write a message. Session serializes calls."))
+
 (defgeneric transport-close (transport)
   (:documentation "Idempotently close transport and unblock readers/writers."))
 
@@ -132,13 +141,17 @@ and body allocation; reject duplicate lengths, bare LF and truncated frames."
   "Construct an owned transport from INPUT (adapter stdout) and OUTPUT (stdin)."
   (make-instance 'stream-transport :input input :output output
                  :max-header max-header :max-body max-body))
+
 (defmethod transport-read ((transport stream-transport))
   "Read one frame from the input stream within the transport's bounds."
-  (read-frame (transport-input transport) :max-header (transport-max-header transport)
-              :max-body (transport-max-body transport)))
+  (read-frame (transport-input transport)
+              :max-header (transport-max-header transport)
+              :max-body   (transport-max-body transport)))
+
 (defmethod transport-write ((transport stream-transport) message)
   "Write MESSAGE as one frame to the output stream."
   (write-frame (transport-output transport) message :max-body (transport-max-body transport)))
+
 (defmethod transport-close ((transport stream-transport))
   "Close both streams and discard unwritten output."
   ; mallet:suppress no-ignore-errors -- closing must reach both streams and never fail
