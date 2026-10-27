@@ -116,6 +116,8 @@ and body allocation; reject duplicate lengths, bare LF and truncated frames."
 (defmethod transport-write ((transport stream-transport) message)
   (write-frame (transport-output transport) message :max-body (transport-max-body transport)))
 (defmethod transport-close ((transport stream-transport))
+  ; mallet:suppress no-ignore-errors -- closing must reach both streams and never fail
   (ignore-errors (close (transport-input transport) :abort t))
+  ; mallet:suppress no-ignore-errors -- closing must reach both streams and never fail
   (ignore-errors (close (transport-output transport) :abort t))
   nil)

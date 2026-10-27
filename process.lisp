@@ -30,6 +30,7 @@
             (sb-ext:process-kill process 9)))
         (sb-ext:process-wait process)
         (call-next-method)
+        ; mallet:suppress no-ignore-errors -- closing must release the process and never fail
         (ignore-errors (close (adapter-error-stream transport) :abort t))
         (sb-ext:process-close process))))
   nil)
